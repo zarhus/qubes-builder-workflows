@@ -33,17 +33,43 @@ jobs:
       contents: write
 
     steps:
+      - name: Prepare SSH key
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{secrets.GITEA_DEPLOY_KEY}}" > ~/.ssh/gitea_deploy_key
+          sed -i 's/\r//' ~/.ssh/gitea_deploy_key
+          chmod 600 ~/.ssh/gitea_deploy_key
+          echo -e "\n
+          Host git.3mdeb.com\n
+          HostName       git.3mdeb.com\n
+          StrictHostKeyChecking no\n
+          UserKnownHostsFile /dev/null\n
+          IdentityFile   ~/.ssh/gitea_deploy_key\n
+          IdentitiesOnly yes" > ~/.ssh/config_deploy
+
       - name: Install dependencies of builder script
         # docker.io was changed to docker because of conflict on containerd
         run: |
           sudo apt install --no-install-recommends --yes \
-          createrepo-c devscripts python3-docker reprepro \
-          python3-pathspec mktorrent python3-lxml python3-dateutil
+          createrepo-c devscripts gpg python3-docker reprepro \
+          python3-pathspec mktorrent python3-lxml python3-dateutil \
+
+      - name: Compile sq
+        run: |
+          sudo apt install --no-install-recommends --yes \
+          build-essential capnproto clang curl git libassuan-dev libbz2-dev \
+          libgpgme-dev libnpth-dev libsqlite3-dev libssl-dev nettle-dev \
+          pkg-config zlib1g-dev && \
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+          source "$HOME/.cargo/env" && \
+          cargo install --version 1.3.1 --locked sequoia-sq && \
+          sudo mv "$HOME/.cargo/bin/sq" /usr/local/bin/
 
       - uses: actions/checkout@v4
         with:
           repository: QubesOS/qubes-builderv2
-          ref: 80dd898cc0472dd99f161f1d1c7c44da64de93f2
+          ref: 5327e41b3d68befc61bee87fb1ac0033662d575f
           fetch-depth: 0
 
       - name: Cache Docker image and dom0 stuff
@@ -184,6 +210,15 @@ jobs:
           cat builder.yml
           echo "::endgroup::"
 
+      - name: Disable AppArmor
+        # Ubuntu runner with Fedora 42 Docker container fails due to AppArmor:
+        # https://github.com/fedora-cloud/docker-brew-fedora/issues/117
+        uses: cisagov/action-disable-apparmor@v1
+
+      - name: Disable kernel.apparmor_restrict_unprivileged_userns
+        # See the AppArmor failures above
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Build and package
         env:
           DEBUG: ${{ runner.debug == 1 && '--debug --verbose' || '' }}
@@ -199,17 +234,11 @@ jobs:
           name: qubesos.dom0.fc37-${{ inputs.qubes-component }}-${{ github.sha }}
           path: '*.rpm'
 
-      - name: Construct release's description
+      - name: Construct commands for transfer
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
           for artifact in *.rpm; do
-            echo "### $artifact" >> release-body.md
-            echo '```' >> release-body.md
             echo "wget --quiet '${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/$artifact'" >> release-body.md
-            echo '```' >> release-body.md
-            echo '```' >> release-body.md
-            echo "curl --remote-name '${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/$artifact'" >> release-body.md
-            echo '```' >> release-body.md
           done
 
       - name: Create release for a new tag
@@ -219,3 +248,30 @@ jobs:
           artifacts: '*.rpm'
           artifactErrorsFailBuild: true
           bodyFile: "release-body.md"
+
+      - name: Run Gitea workflow
+        shell: bash
+        run: |
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
+          GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git clone ssh://git@git.3mdeb.com:2222/zarhus/trenchboot-release-cicd-pipeline.git
+          cd trenchboot-release-cicd-pipeline
+          cp ../release-body.md .
+          git add release-body.md
+          git commit -m "Signing release ${{ github.ref_name }}"
+          GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git push origin devel
+          git tag "${{ github.ref_name }}"
+          GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git push origin "${{ github.ref_name }}"
+          cd -
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-24.04
+    needs: build-and-package
+    if: always()
+    steps:
+      - name: Cleanup after deployment
+        shell: bash
+        run: |
+          rm -f ~/.ssh/gitea_deploy_key
+          rm -rf trenchboot-release-cicd-pipeline
