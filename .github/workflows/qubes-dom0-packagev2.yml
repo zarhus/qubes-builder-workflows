@@ -38,7 +38,8 @@ jobs:
         run: |
           sudo apt install --no-install-recommends --yes \
           createrepo-c devscripts python3-docker reprepro \
-          python3-pathspec mktorrent python3-lxml python3-dateutil
+          python3-pathspec mktorrent python3-lxml python3-dateutil \
+          sq
 
       - uses: actions/checkout@v4
         with:
