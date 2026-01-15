@@ -21,6 +21,7 @@ RUN dnf -y install \
     rpm-build \
     rpm-sign \
     rpmdevtools \
+    sq \
     systemd-container \
     systemd-udev \
     wget \
