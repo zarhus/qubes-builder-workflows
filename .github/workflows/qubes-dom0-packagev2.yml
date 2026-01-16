@@ -37,8 +37,16 @@ jobs:
         # docker.io was changed to docker because of conflict on containerd
         run: |
           sudo apt install --no-install-recommends --yes \
-          createrepo-c devscripts python3-docker reprepro \
+          createrepo-c devscripts gpg python3-docker reprepro \
           python3-pathspec mktorrent python3-lxml python3-dateutil \
+
+      - name: Import the test CI signing private key
+        run: |
+          echo "${{ secrets.TEST_CI_PRIVATE_KEY }}" | gpg --batch --import
+
+      - name: Compile sq
+        run: |
+          sudo apt install --no-install-recommends --yes \
           build-essential capnproto clang curl git libassuan-dev libbz2-dev \
           libgpgme-dev libnpth-dev libsqlite3-dev libssl-dev nettle-dev \
           pkg-config zlib1g-dev && \
@@ -181,6 +189,8 @@ jobs:
               echo "::endgroup::"
           else
               # It's an existing component that needs some overrides
+              # "2C551A2BE60D4F0A317DCEBD68087B8608881D06" is a test CI key
+              sed -i '1i sign-key:\n  rpm: "2C551A2BE60D4F0A317DCEBD68087B8608881D06"' builder.yml
               sed -i "1,/^  - $COMPONENT/s#^  - $COMPONENT#&:#" builder.yml
               sed -i "/^  - $COMPONENT:/a\      verification-mode: insecure-skip-checking" builder.yml
               sed -i "/^  - $COMPONENT:/a\      branch: $branch_name" builder.yml
@@ -204,7 +214,7 @@ jobs:
         env:
           DEBUG: ${{ runner.debug == 1 && '--debug --verbose' || '' }}
         run: |
-          ./qb $DEBUG -c ${{ inputs.qubes-component }} package fetch prep build
+          ./qb $DEBUG -c ${{ inputs.qubes-component }} package fetch prep build sign
           rpms=( $(find "artifacts/components/${{ inputs.qubes-component }}/" -regex ".*/build/rpm/[^/]*.rpm") )
           cp --verbose "${rpms[@]}" .
 
