@@ -245,3 +245,41 @@ jobs:
           artifacts: '*.rpm'
           artifactErrorsFailBuild: true
           bodyFile: "release-body.md"
+
+      - name: Prepare SSH key
+        shell: bash
+        env:
+          GITEA_DEPLOY_KEY: ${{secrets.GITEA_DEPLOY_KEY}}
+        run: |
+          echo -e ${GITEA_DEPLOY_KEY} > ~/.ssh/gitea_deploy_key
+          chmod 600 ~/.ssh/gitea_deploy_key
+          echo -e "\n
+          Host git.3mdeb.com\n
+          HostName       git.3mdeb.com\n
+          IdentityFile   ~/.ssh/gitea_deploy_key\n
+          IdentitiesOnly yes" > ~/.ssh/config_deploy
+
+      - name: Run Gitea workflow
+        shell: bash
+        run: |
+          GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git clone ssh://git@git.3mdeb.com:2222/zarhus/trenchboot-release-cicd-pipeline.git
+          cd trenchboot-release-cicd-pipeline
+          cp ../release-body.md .
+          git add release-body.md
+          git commit -m "Signing release ${{ github.ref_name }}"
+          GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git push origin main
+          git tag "${{ github.ref_name }}"
+          GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git push origin "${{ github.ref_name }}"
+          cd -
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-24.04
+    needs: build-and-package
+    if: always()
+    steps:
+      - name: Cleanup after deployment
+        shell: bash
+        run: |
+          rm -f ~/.ssh/gitea_deploy_key
+          rm -rf trenchboot-release-cicd-pipeline
