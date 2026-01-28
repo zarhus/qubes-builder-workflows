@@ -33,14 +33,6 @@ jobs:
       contents: write
 
     steps:
-      - name: Install dependencies of builder script
-        # docker.io was changed to docker because of conflict on containerd
-        run: |
-          sudo apt install --no-install-recommends --yes \
-          createrepo-c devscripts gpg python3-docker reprepro \
-          python3-pathspec mktorrent python3-lxml python3-dateutil \
-          dos2unix
-
       - name: Prepare SSH key
         shell: bash
         env:
@@ -48,7 +40,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo -e ${GITEA_DEPLOY_KEY} > ~/.ssh/gitea_deploy_key
-          dos2unix ~/.ssh/gitea_deploy_key
+          sed -i 's/\r//' ~/.ssh/gitea_deploy_key
           chmod 600 ~/.ssh/gitea_deploy_key
           echo -e "\n
           Host git.3mdeb.com\n
@@ -62,6 +54,13 @@ jobs:
         shell: bash
         run: |
           GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git clone ssh://git@git.3mdeb.com:2222/zarhus/trenchboot-release-cicd-pipeline.git
+
+      - name: Install dependencies of builder script
+        # docker.io was changed to docker because of conflict on containerd
+        run: |
+          sudo apt install --no-install-recommends --yes \
+          createrepo-c devscripts gpg python3-docker reprepro \
+          python3-pathspec mktorrent python3-lxml python3-dateutil \
 
       - name: Import the test CI signing private key
         run: |
