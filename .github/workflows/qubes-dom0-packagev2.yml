@@ -40,7 +40,6 @@ jobs:
           echo "${{secrets.GITEA_DEPLOY_KEY}}" > ~/.ssh/gitea_deploy_key
           sed -i 's/\r//' ~/.ssh/gitea_deploy_key
           chmod 600 ~/.ssh/gitea_deploy_key
-          ssh-add ~/.ssh/gitea_deploy_key
           echo -e "\n
           Host git.3mdeb.com\n
           HostName       git.3mdeb.com\n
