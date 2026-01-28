@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/.ssh
-          echo ${{secrets.GITEA_DEPLOY_KEY}} > ~/.ssh/gitea_deploy_key
+          echo "${{secrets.GITEA_DEPLOY_KEY}}" > ~/.ssh/gitea_deploy_key
           sed -i 's/\r//' ~/.ssh/gitea_deploy_key
           chmod 600 ~/.ssh/gitea_deploy_key
           ssh-add ~/.ssh/gitea_deploy_key
