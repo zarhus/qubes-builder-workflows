@@ -271,7 +271,7 @@ jobs:
           cp ../release-body.md .
           git add release-body.md
           git commit -m "Signing release ${{ github.ref_name }}"
-          GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git push origin main
+          GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git push origin devel
           git tag "${{ github.ref_name }}"
           GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git push origin "${{ github.ref_name }}"
           cd -
