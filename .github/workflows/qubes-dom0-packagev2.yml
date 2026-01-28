@@ -35,13 +35,12 @@ jobs:
     steps:
       - name: Prepare SSH key
         shell: bash
-        env:
-          GITEA_DEPLOY_KEY: ${{secrets.GITEA_DEPLOY_KEY}}
         run: |
           mkdir -p ~/.ssh
-          echo -e ${GITEA_DEPLOY_KEY} > ~/.ssh/gitea_deploy_key
+          echo ${{secrets.GITEA_DEPLOY_KEY}} > ~/.ssh/gitea_deploy_key
           sed -i 's/\r//' ~/.ssh/gitea_deploy_key
           chmod 600 ~/.ssh/gitea_deploy_key
+          ssh-add ~/.ssh/gitea_deploy_key
           echo -e "\n
           Host git.3mdeb.com\n
           HostName       git.3mdeb.com\n
