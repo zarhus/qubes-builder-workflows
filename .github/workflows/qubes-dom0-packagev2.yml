@@ -264,6 +264,8 @@ jobs:
       - name: Run Gitea workflow
         shell: bash
         run: |
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
           GIT_SSH_COMMAND='ssh -F ~/.ssh/config_deploy' git clone ssh://git@git.3mdeb.com:2222/zarhus/trenchboot-release-cicd-pipeline.git
           cd trenchboot-release-cicd-pipeline
           cp ../release-body.md .
