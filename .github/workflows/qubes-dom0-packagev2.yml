@@ -244,13 +244,7 @@ jobs:
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
           for artifact in *.rpm; do
-            echo "### $artifact" >> release-body.md
-            echo '```' >> release-body.md
             echo "wget --quiet '${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/$artifact'" >> release-body.md
-            echo '```' >> release-body.md
-            echo '```' >> release-body.md
-            echo "curl --remote-name '${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/$artifact'" >> release-body.md
-            echo '```' >> release-body.md
           done
 
       - name: Create release for a new tag
